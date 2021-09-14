@@ -1,0 +1,125 @@
+---
+# pivot variable for adjacent group lookup
+env: stage
+brew_cli_cmd: brew-stage
+
+# remote logging
+rsyslog_tags: "Brew stage"
+
+# use a shared restricted access repo for creds setup via ansible-galaxy
+secret_repo: "{{ playbook_dir }}/roles/brew-stage/"
+
+# needed by hub and database roles
+brew_db_server: "{{ hostvars[groups['brew-' ~ env ~ '-db']|first].servername }}"
+brew_db_name: brew
+brew_db_username: brew
+
+brew_hub_name: "{{ hostvars[groups['brew-' ~ env ~ '-hub']|first].servername }}"
+brew_hub_realname: "{{ hostvars[groups['brew-' ~ env ~ '-hub']|first].inventory_hostname }}"
+brew_builder_principal_format: 'compile/%s@{{ brew_web_nodes_KrbDomain }}'
+brew_web_nodes: "{{ groups['brew-' ~ env ~ '-web'] }}"
+
+brew_web_cname: "{{ hostvars[groups['brew-' ~ env ~ '-web'][0]].servername }}"
+brew_hub_cname: "{{ hostvars[groups['brew-' ~ env ~ '-hub'][0]].servername }}"
+
+koji_hub_url: "http://{{ brew_hub_cname }}/brewhub"
+
+brew_web_nodes_KrbService: HTTP
+brew_web_nodes_KrbDomain: "{{ krb_default_domain }}"
+koji_conf_env: brew-stage
+
+# who to send notifications to
+koji_admin_email: "mikem@redhat.com"
+koji_admin_from_address: "Next Gen Red Hat Buildsystem <buildsys-stage@redhat.com>"
+kojihubKrbServiceName: brewhub
+
+
+nfs_koji_server_hostname: ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com
+nfs_koji_server_path: "/engops_brew_verification_stage_nfs"
+nfs_redhat_server_hostname: ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com
+nfs_redhat_server_path: "/devops_engineering_nfs/devarchive/redhat"
+
+
+brew_nfs_mnt_qe_compose_test:
+  path: /mnt/compose_test
+  src: "{{ nfs_koji_server_hostname }}{{ ':' }}/pnt_brew_compose_pungi_nfs"
+  opts: "rw,nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768"
+
+
+# who should get full sudo on these hosts
+has_sudo: ['engops', 'brewmasters']
+sudo_groups:
+- name: "engops"
+  groups: "ALL"
+  commands: "ALL"
+- name: "brewmasters"
+  groups: "ALL"
+  commands: "ALL"
+- name: "eng-rcm"
+  groups: "ALL"
+  commands: "SU_USER_KOJIBUILDER"
+sudo_command_aliases:
+- name: "SU_USER_KOJIBUILDER"
+  commands: "/bin/su - kojibuilder, /bin/su kojibuilder"
+
+
+
+# hub message bus config
+messagebus_username: brew-stage
+messagebus_hostname: qpid.stage.engineering.redhat.com
+
+# hub protonmsg plugin config
+koji_protonmsg_urls: amqps://messaging-devops-broker01.web.stage.ext.phx2.redhat.com:5671 amqps://messaging-devops-broker02.web.stage.ext.phx2.redhat.com:5671
+koji_protonmsg_cert: /etc/koji-hub/plugins/msg-producer-brew-stage.pem
+koji_protonmsg_ca: /etc/pki/tls/certs/ca-bundle.crt
+koji_protonmsg_topic_prefix: VirtualTopic.eng.brew
+
+# hub mavensign config (disabled in stage)
+koji_mavensign_skip_builds: "*"
+
+# plugins for hub
+koji_plugins: [ 'products', 'runroot_hub', 'runroot_old', 'rpm2maven', 'mavensign', 'rpm-sign', 'messagebus', 'hub_containerbuild', 'kpatch', 'protonmsg' ]
+
+# teiid DB ACL
+brew_teiid_host: teiid.host.stage.eng.bos.redhat.com
+brew_teiid_username: vdb_user_stage
+
+brew_teiid_devel_host: teiid-devel-01.app.eng.bne.redhat.com
+brew_teiid_devel_username: vdb_user_devel
+
+brew_teiid_devel_rhel7_host: teiid.host.dev.eng.pek2.redhat.com
+
+# the following is needed for the sql prod-to-strage transformation script
+additional_brew_builders:
+- { hostname: build-x86-001.brew.stage.eng.bos.redhat.com, channels: ['default', 'createrepo', 'overflow'], archs: ['i386', 'x86_64'] }
+- { hostname: build-x86-002.brew.stage.eng.bos.redhat.com, channels: ['default', 'createrepo', 'overflow'], archs: ['i386', 'x86_64'] }
+- { hostname: ppc-005.build.bos.redhat.com, channels: ['default', 'createrepo', 'overflow'], archs: ['ppc'] }
+
+
+
+# extra scms for stage
+koji_stage_allowed_scms:
+-  dist-git-qa.app.eng.bos.redhat.com:/rpms/*:false:rhpkg-qa,sources
+-  dist-git-qa.app.eng.bos.redhat.com:/apbs/*:no:rhpkg-qa,sources
+-  dist-git-qa.app.eng.bos.redhat.com:/containers/*:no:rhpkg-qa,sources
+-  dist-git-qa.app.eng.bos.redhat.com:/modules/*:no:rhpkg-qa,sources
+-  dist-git.host.stage.eng.bos.redhat.com:/rpms/*:false:rhpkg-stage,sources
+-  dist-git.host.stage.eng.bos.redhat.com:/apbs/*:no:rhpkg-stage,sources
+-  dist-git.host.stage.eng.bos.redhat.com:/containers/*:no:rhpkg-stage,sources
+-  dist-git.host.stage.eng.bos.redhat.com:/modules/*:no:rhpkg-stage,sources
+koji_allowed_scms: "{{ koji_base_allowed_scms + koji_stage_allowed_scms }}"
+
+
+# obsoleting
+brew_top_url: "{{ koji_top_url }}"
+
+#runroot stage
+koji_builder_runroot_default_mounts_extra:
+-  "/mnt/compose_test"
+- "{{ '' if 'brew-builder-rhel8' in group_names else '/dev' }}"
+koji_builder_runroot_default_mounts: "{{ koji_builder_runroot_default_mounts_base + koji_builder_runroot_default_mounts_extra | difference(['']) }}"
+koji_builder_runroot_safe_roots:
+-  "/mnt/redhat/compose_test"
+-  "/mnt/odcs"
+koji_builder_runroot_path_subs:
+-  "/mnt/redhat/compose_test,/mnt/compose_test"

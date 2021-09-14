@@ -1,0 +1,140 @@
+---
+# use a shared restricted access repo for secrets via ansible-galaxy
+secret_repo: "{{ playbook_dir }}/roles/osbs-secrets/"
+
+firewall_type: firewalld
+
+# FIXME: is this still needed for us to use certificates not issued by the eng-ops CA?
+ssl_intermediate_ca_pattern: ""
+
+# Kerberos on rcm-img-dockerX machines is set up by Puppet/CFEngine/? - we need
+# to set kerberos_capable to true so that the apache role installs kerberos
+# support even though we're not using the kerberos role.
+kerberos_capable: true
+
+# install openshift from eng-rhel-7 repo
+install_openshift_method: ose
+
+# Do not perform docker storage setup by default as it destroys all old data.
+docker_storage_setup: false
+
+# Docker needs to know which registries are insecure. If you're pulling
+# atomic-reactor image from insecure registry you also need to put it here.
+docker_insecure_registries:
+- brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888
+
+osbs_namespace_create: true
+osbs_deployment_type: atomic-openshift
+osbs_openshift_sdn: true
+osbs_docker_registry: true
+
+# Set to false if you don't use firewalld or do not want the playbook to modify it.
+osbs_manage_firewalld: true
+
+# Expose the OpenShift port to the outside world? Set this to false when using
+# authenticating proxy on the localhost. Has no effect if osbs_manage_firewalld
+# is false.
+osbs_master_expose_port: false
+
+# These paths are hardcoded in the apache role. Self-signed certifcate will be
+# generated (by the role, not us) if we don't have any.
+osbs_proxy_ssl_generate_selfsigned: false
+osbs_proxy_ssl_cert_file: /etc/httpd/conf/ssl.crt
+osbs_proxy_ssl_key_file: /etc/httpd/conf/ssl.key
+
+osbs_service_accounts:
+- metrics
+- autobot-jenkins
+- monitoring
+
+osbs_worker_service_accounts:
+- orchestrator
+- builder
+- autobot-jenkins
+- monitoring
+
+osbs_worker_namespace: worker
+
+# Pin docker to 1.10
+docker_pkg_name: docker-1.10.3-46.el7.14
+
+# OpenShift version to be installed.
+install_openshift_ose_version: 3.3.1.7
+
+# OpenShift authorization - which users should be assigned the view (readonly),
+# osbs-builder (readwrite), and cluster-admin (admin) roles.
+# In default configuration, everyone has read/write access:
+#osbs_readonly_users: []
+#osbs_readonly_groups: []
+#osbs_readwrite_users: []
+#osbs_readwrite_groups:
+#  - system:authenticated
+#  - system:unauthenticated
+#osbs_admin_users: []
+#osbs_admin_groups: []
+
+# The files have to be named pulp.cer and pulp.key
+pulp_secret_local_dir: "{{ secret_repo }}/groups/osbs-{{ env }}/"
+pulp_secret_name: pulpsecret
+pulp_secret_can_fail: true
+pulp_secret_namespace: "{{ osbs_namespace }}"
+
+#temporarily disable until rhbz#1300570 is resolved
+osbs_image_gc_high_threshold: 100
+osbs_image_gc_low_threshold: 100
+
+osbs_conf_authoritative_registry: registry.access.redhat.com
+osbs_conf_sources_command: rhpkg-env sources
+osbs_conf_vendor: Red Hat, Inc.
+
+osbs_buildroot_repository: "registry-proxy.engineering.redhat.com/rh-osbs/rcm-buildroot"
+osbs_buildroot_imagestream: "osbs-rcm-buildroot"
+
+# ansible-role/docker defines journald as logging driver which
+# causes some log lines in OSBS builds to swallowed due to rate limit
+docker_opts: "--selinux-enabled --log-driver=json-file"
+
+osbs_odcs_default_signing_intent: release
+
+osbs_odcs_signing_intents:
+- name: release
+  keys:
+  - 'FD431D51'
+  - 'DB42A60E'
+  deprecated_keys:
+  - '37017186'
+- name: release_cdk
+  keys:
+  - 'FD431D51'
+  - 'DB42A60E'
+  - 'A5787476'
+  deprecated_keys:
+  - '37017186'
+- name: beta
+  keys:
+  - 'F21541EB'
+  - '897DA07A'
+  - 'FD431D51'
+  - 'DB42A60E'
+  deprecated_keys:
+  - '37017186'
+- name: e2e_testing
+  keys:
+  - 'F21541EB'
+  - '897DA07A'
+  - 'FD431D51'
+  - 'DB42A60E'
+  - '37036783'
+  deprecated_keys:
+  - '37017186'
+- name: unsigned
+  keys: []
+
+osbs_platform_descriptors:
+- platform: x86_64
+  architecture: amd64
+- platform: aarch64
+  architecture: arm64
+
+osbs_image_equal_labels:
+- ['description', 'io.k8s.description']

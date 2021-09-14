@@ -1,0 +1,114 @@
+env: prod
+brew_cli_cmd: brew
+
+# remote logging
+rsyslog_tags: "Brew"
+
+# needed by hub and database roles
+brew_db_server: "{{ hostvars[groups['brew-' ~ env ~ '-db']|first].servername }}"
+brew_db_name: brew
+brew_db_username: brew
+koji_hub_additional_proxy_principals:
+- "mead-scheduler/rcm-dev.app.eng.bos.redhat.com@{{ krb_default_domain }}"
+- "mead-scheduler/rcm-worker-2.app.eng.bos.redhat.com@{{ krb_default_domain }}"
+
+brew_hub_name: "{{ hostvars[groups['brew-' ~ env ~ '-hub']|first].servername }}"
+brew_hub_realname: "{{ hostvars[groups['brew-' ~ env ~ '-hub']|first].inventory_hostname }}"
+brew_builder_principal_format: 'compile/%s@{{ brew_web_nodes_KrbDomain }}'
+brew_web_nodes: "{{ groups['brew-' ~ env ~ '-web'] }}"
+
+brew_web_cname: "{{ hostvars[groups['brew-' ~ env ~ '-web'][0]].servername }}"
+brew_hub_cname: "{{ hostvars[groups['brew-' ~ env ~ '-hub'][0]].servername }}"
+
+brew_web_nodes_KrbService: HTTP
+brew_web_nodes_KrbDomain: "{{ krb_default_domain }}"
+koji_conf_env: brew
+
+koji_admin_email: "mikem@redhat.com"
+koji_admin_from_address: "Red Hat Buildsystem <buildsys@redhat.com>"
+kojihubKrbServiceName: brewhub
+brew_disable_email_notifications: "False"
+
+# nfs paths
+# pre-prod
+#nfs_koji_server_hostname: ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com
+#nfs_koji_server_path: "/engops_brew_verification_preprod_migration_nfs"
+# prod
+brew_top_url: "http://download.eng.bos.redhat.com/brewroot"
+nfs_koji_server_hostname: ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com
+nfs_koji_server_path: /devops_engineering_nfs/devarchive/redhat/brewroot
+nfs_redhat_server_hostname: ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com
+nfs_redhat_server_path: "/devops_engineering_nfs/devarchive/redhat"
+backup_dest_folder:  brew-backups
+
+# make group3 auxilery nfs mount options match the primary brew mount options per role instead of RO only
+brew_nfs_group3_opts: '{{ nfs_koji_mount_dir_opts }}'
+
+has_sudo: ['engops', 'brewmasters']
+sudo_groups:
+- name: "engops"
+  groups: "ALL"
+  commands: "ALL"
+- name: "brewmasters"
+  groups: "ALL"
+  commands: "ALL"
+- name: "eng-rcm"
+  groups: "ALL"
+  commands: "SU_USER_KOJIBUILDER"
+sudo_command_aliases:
+- name: "SU_USER_KOJIBUILDER"
+  commands: "/bin/su - kojibuilder, /bin/su kojibuilder"
+
+messagebus_username: brew
+# pre-prod
+#messagebus_hostname: qpid.test.engineering.redhat.com
+# prod
+messagebus_hostname: qpid.devel.redhat.com
+
+# hub protonmsg plugin config
+koji_protonmsg_urls: amqps://messaging-devops-broker01.web.prod.ext.phx2.redhat.com:5671 amqps://messaging-devops-broker02.web.prod.ext.phx2.redhat.com:5671
+koji_protonmsg_cert: /etc/koji-hub/plugins/msg-producer-brew-prod.pem
+koji_protonmsg_ca: /etc/pki/tls/certs/ca-bundle.crt
+koji_protonmsg_topic_prefix: VirtualTopic.eng.brew
+
+# plugins for hub
+koji_plugins: [ 'products', 'runroot_hub', 'runroot_old', 'rpm2maven', 'mavensign', 'rpm-sign', 'messagebus', 'hub_containerbuild', 'kpatch', 'protonmsg', 'save_failed_tree' ]
+
+# teiid DB ACL
+brew_teiid_host: teiid.host.prod.eng.bos.redhat.com
+brew_teiid_username: vdb_user_prod
+#postgres_cfg_user: postgres
+
+# package access
+submgr_enabled_repos:
+- rhscl
+
+postgresql_scl_mode: yes
+
+
+
+
+koji_package_latest: True
+
+#runroot prod
+koji_builder_runroot_safe_roots:
+-  /mnt/redhat/rel-eng
+-  /mnt/redhat/nightly
+-  /mnt/redhat/devel
+-  /mnt/redhat/rhel-5/rel-eng
+-  /mnt/redhat/rhel-5/nightly
+-  /mnt/redhat/rhel-5/devel
+-  /mnt/redhat/rhel-6/rel-eng
+-  /mnt/redhat/rhel-6/nightly
+-  /mnt/redhat/rhel-6/devel
+-  /mnt/redhat/rhel-7/rel-eng
+-  /mnt/redhat/rhel-7/nightly
+-  /mnt/redhat/rhel-7/devel
+-  /mnt/redhat/rhel-8/rel-eng
+-  /mnt/redhat/rhel-8/nightly
+-  /mnt/redhat/rhel-8/devel
+-  /mnt/redhat/scripts/distill-cache
+-  /mnt/odcs
+
+# BareOS Director
+bareos_director: bareos-director.host.dr-prod.eng.phx.redhat.com

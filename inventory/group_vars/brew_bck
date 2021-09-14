@@ -1,0 +1,345 @@
+---
+# apache role to enable kerberos keytab setup
+httpd_auth_kerberos: true
+
+# brew tools git items for koji hub rules
+brewtools_git_path: /opt/brewtools
+brewtools_git_repo: "https://code.engineering.redhat.com/gerrit/brew-tools.git"
+brewtools_git_branch: master
+
+koji_policy_git_path: "{{ brewtools_git_path }}"
+koji_policy_git_repo: "{{ brewtools_git_repo }}"
+koji_policy_git_branch: "{{ brewtools_git_branch }}"
+koji_policy_git_path_to_policy: "src/conf/hub_policy.conf"
+
+# common database options
+brew_db_server: "{{ hostvars[groups['brew-' ~ env ~ '-db']|first].servername }}"
+brew_db_name: brew
+brew_db_username: brew
+
+# how other roles can find hub, web for config generation, access
+brew_hub_name: "{{ hostvars[groups['brew-' ~ env ~ '-hub']|first].servername }}"
+brew_hub_realname: "{{ hostvars[groups['brew-' ~ env ~ '-hub']|first].inventory_hostname }}"
+brew_web_nodes: "{{ groups['brew-' ~ env ~ '-web'] }}"
+brew_web_cname: "{{ hostvars[groups['brew-' ~ env ~ '-web'][0]].servername }}"
+brew_hub_cname: "{{ hostvars[groups['brew-' ~ env ~ '-hub'][0]].servername }}"
+
+# builder principle format.  This is void of the third element 'beehive'
+brew_builder_principal_format: 'compile/%s@{{ brew_web_nodes_KrbDomain }}'
+
+# where to dig for kojid keytabs
+brewbuilder_keytab: "{{ secret_repo }}/hosts/{{ inventory_hostname }}/kojid.keytab"
+
+
+# koji environment name
+koji_conf_env: brew-web
+koji_web_url: "https://{{ brew_web_cname }}/brew"
+# the following could also be a download server elsewhere.
+koji_hub_url: "https://{{ brew_hub_cname }}/brewhub"
+koji_web_nodes_KrbService: HTTP
+koji_web_nodes_KrbDomain: REDHAT.COM
+
+koji_web_tasks:
+- runroot
+- runroot_old
+- kpatchBuild
+- build-fullsource
+- buildFullSRPMFromSCM
+- buildContainer
+- "{{ '' if 'brew-stage-web' in group_names else 'saveFailedTree' }}"
+koji_web_toplevel_tasks:
+- runroot
+- kpatchBuild
+- runroot_old
+- build-fullsource
+- buildContainer
+- "{{ '' if 'brew-stage-web' in group_names else 'saveFailedTree' }}"
+koji_web_parent_tasks:
+- kpatch
+- build-fullsource
+
+koji_builder_plugins:
+- "{{ '' if 'brew-builder-no-runroot' in group_names else 'runroot' }}"
+- "{{ '' if 'brew-builder-no-runroot' in group_names else 'runroot_old' }}"
+- kerberos
+- fullsource
+- kpatch
+- scmpolicy
+- "{{ '' if 'brew-stage-builders' in group_names else 'save_failed_tree' }}"
+- "{{ 'builder_containerbuild' if 'brew-builder-containerbuild' in group_names and ansible_os_family == 'RedHat' and ansible_distribution_major_version >= '6' else '' }}"
+
+# packages list for builders -- only available for upgrade-brew.yml
+#
+# TODO:
+# - use varibles to specify package list for setup/update of all hosts
+# - get ansible working with versionlock, https://github.com/ansible/ansible/issues/13086
+koji_builder_packages_base:
+- koji-builder
+- rh-koji-plugins-builder
+- koji-builder-plugins
+
+koji_builder_packages_extra: []
+koji_builder_packages_onetime: []
+
+# krb service name for the hub.  USed for config genration.  Replaces 'shell' on former setup
+kojihubKrbServiceName: brewhub
+
+
+# common NFS mounts
+nfs_brew_eng_kernelarchive_server_hostname: ntap-bos-c01-eng01-nfs01a.storage.bos.redhat.com
+nfs_brew_eng_kernelarchive_server_path: "/devops_kernelarchive_nfs"
+nfs_brew_archive01_server_hostname: ntap-bos-c01-eng01-nfs01a.storage.bos.redhat.com
+nfs_brew_archive01_server_path: "/brew_archive01"
+
+# compose NFS mounts
+nfs_brew_compose_test_server_hostname: "ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com"
+nfs_brew_compose_test_server_path: "/pnt_brew_compose_pungi_nfs"
+
+koji_mount_dir: /mnt/brew
+
+
+
+# map them into nfs_mounts layout for most brew related roles.
+# this takes over managing mounts from the brew/koji roles
+nfs_redhat_mount_dir_opts: 'ro,nfsvers=3,_netdev'
+
+brew_nfs_mnt_redhat:
+  path: /mnt/redhat
+  src: "{{ nfs_redhat_server_hostname }}:{{ nfs_redhat_server_path }}"
+  opts: "{{ nfs_redhat_mount_dir_opts }},nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768"
+
+# the following volumes should be treated as a set, the RO/RW property is shared between them.
+# except for stage, it should only ever have RO access
+brew_nfs_group3_opts: 'ro,nfsvers=3,_netdev'
+nfs_koji_mount_dir_opts: 'ro,nfsvers=3,_netdev'
+
+brew_nfs_mnt_koji:
+  path: /mnt/brew
+  src: "{{ nfs_koji_server_hostname }}:{{ nfs_koji_server_path }}"
+  opts: "{{ nfs_koji_mount_dir_opts }},nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768"
+
+brew_nfs_mnt_kernelarchive:
+  path: /mnt/eng_kernelarchive
+  src: "{{ nfs_brew_eng_kernelarchive_server_hostname }}:{{ nfs_brew_eng_kernelarchive_server_path }}"
+  opts: "{{ brew_nfs_group3_opts }},nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768"
+
+brew_nfs_mnt_archive01:
+  path: /mnt/brew_archive01
+  src: "{{ nfs_brew_archive01_server_hostname }}:{{ nfs_brew_archive01_server_path }}"
+  opts: "{{ brew_nfs_group3_opts }},nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768"
+
+brew_nfs_mnt_archive02:
+  path: /mnt/brew_archive02
+  src: "ntap-bos-c01-eng01-nfs01a.storage.bos.redhat.com:/brew_archive02"
+  opts: "{{ brew_nfs_group3_opts }},nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768"
+
+brew_nfs_mnt_scratch:
+  path: /mnt/brew_scratch
+  src: "ntap-bos-c01-eng01-nfs01a.storage.bos.redhat.com:/devops_brew_scratch_nfs"
+  opts: "{{ brew_nfs_group3_opts }},nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768"
+
+# nfs_koji_mount_dir_opts and nfs_redhat_mount_dir_opts should be overridden
+# per function - e.g. rcmshell. brew_nfs_group3_opts should only be set per
+# environment (prod) and even then should match brew_nfs_group3_opts
+
+## yum repo handling
+
+# pcp yum rpos for instrumentation
+yum_repo_pcp:
+  name: pcp
+  description: pcp system - $basearch
+  baseurl: http://yum.engineering.redhat.com/pub/yum/redhat/pcp/$releasever/$basearch/
+  gpgkey: http://yum.engineering.redhat.com/pub/RPM-GPG-KEY-redhatengsystems
+  gpgcheck: yes
+  enabled: no
+  skip_if_unavailable: yes
+yum_repo_pcp_noarch:
+  name: pcp-noarch
+  description: pcp system - noarch
+  baseurl: http://yum.engineering.redhat.com/pub/yum/redhat/pcp/$releasever/noarch/
+  gpgkey: http://yum.engineering.redhat.com/pub/RPM-GPG-KEY-redhatengsystems
+  gpgcheck: yes
+  enabled: no
+  skip_if_unavailable: no
+
+# repos from stage environment.  Generated by brew
+yum_repo_brewpkgs_stage:
+  name: brewpkgs-stage
+  description: Brew Buildsystem for Red Hat Enterprise Linux $releasever - $basearch - stage
+  baseurl: "http://download.devel.redhat.com/brewroot/repos/brew-{{ ansible_distribution_major_version }}E-stage/latest/$basearch"
+  enabled: yes
+  gpgcheck: no
+
+# repos from QE environment.  Generated by brew
+yum_repo_brewpkgs_qe:
+  name: brewpkgs-qe
+  description: Brew Buildsystem for Red Hat Enterprise Linux $releasever - $basearch - QE
+  baseurl: "http://download.devel.redhat.com/brewroot/repos/brew-{{ ansible_distribution_major_version }}E-candidate/latest/$basearch"
+  enabled: yes
+  gpgcheck: no
+
+# rhel 8 enablement
+yum_repo_koji_rhel8:
+  name: koji-rhel-8
+  description: Koji RHEL 8 enablement $basearch
+  baseurl: http://yum.engineering.redhat.com/pub/yum/redhat/koji-rhel8/$releasever/$basearch/
+  gpgkey: http://yum.engineering.redhat.com/pub/RPM-GPG-KEY-redhatengsystems
+  enabled: yes
+  gpgcheck: yes
+yum_repo_koji_rhel8_noarch:
+  name: koji-rhel-8-noarch
+  description: Koji RHEL 8 enablement noarch
+  baseurl: http://yum.engineering.redhat.com/pub/yum/redhat/koji-rhel8/$releasever/noarch/
+  gpgkey: http://yum.engineering.redhat.com/pub/RPM-GPG-KEY-redhatengsystems
+  enabled: yes
+  gpgcheck: yes
+yum_repo_koji_rhel75_alt:
+  name: koji-rhel-75-alt
+  description: RHEL-ALT-7.5
+  baseurl: http://download-node-02.eng.bos.redhat.com/released/rhel-7/RHEL-ALT-7/7.5/Server/$basearch/os/
+  gpgkey: http://download-node-02.eng.bos.redhat.com/released/rhel-7/RHEL-ALT-7/7.5/Server/$basearch/os/RPM-GPG-KEY-redhat-release
+  enabled: yes
+  gpgcheck: no
+  includepkgs: "kernel.* dnf.* mock.*"
+yum_repo_koji_rhel8_stage:
+  name: koji-rhel-8-stage
+  description: Koji RHEL 8 stage enablement $basearch
+  baseurl: http://yum.engineering.redhat.com/pub/yum/redhat/koji-rhel8-stage/$releasever/$basearch/
+  enabled: yes
+  gpgcheck: no
+yum_repo_koji_rhel8_noarch_stage:
+  name: koji-rhel-8-noarch-stage
+  description: Koji RHEL 8 stage enablement noarch
+  baseurl: http://yum.engineering.redhat.com/pub/yum/redhat/koji-rhel8-stage/$releasever/noarch/
+  enabled: yes
+  gpgcheck: no
+
+repos_custom:
+  pcp:
+  - "{{ yum_repo_pcp }}"
+  - "{{ yum_repo_pcp_noarch }}"
+  koji_rhel8:
+  - "{{ yum_repo_koji_rhel8 }}"
+  - "{{ yum_repo_koji_rhel8_noarch }}"
+  koji_rhel8_stage:
+  - "{{ yum_repo_koji_rhel8_stage }}"
+  - "{{ yum_repo_koji_rhel8_noarch_stage }}"
+  brewpkgs-stage:
+  - "{{ yum_repo_brewpkgs_stage }}"
+  brewpkgs-qe:
+  - "{{ yum_repo_brewpkgs_qe }}"
+  rhel8_alt:
+  - "{{ yum_repo_koji_rhel75_alt }}"
+  rhel-alt-75:
+  - "{{ yum_repo_koji_rhel75_alt }}"
+
+
+repos_add:
+- koji
+- "{{ '' if ansible_architecture == 'ppc64le' else 'ops' }}"
+- "{{ 'zabbix' if ansible_architecture == 'x86_64' else '' }}"
+- "{{ '' if 'brew-builders' in group_names else 'pcp' }}"
+- "{{ 'brewpkgs-stage' if 'brew-stage' in group_names else '' }}"
+- "{{ 'brewpkgs-qe' if 'brew-qe' in group_names else '' }}"
+- "{{ 'rhel8_alt' if 'brew-builder-rhel8' in group_names else '' }}"
+- "{{ 'koji_rhel8' if 'brew-builder-rhel8' in group_names else '' }}"
+- "{{ 'koji_rhel8_stage' if 'brew-builder-rhel8' in group_names and 'brew-stage' in group_names else '' }}"
+- "{{ 'rhel-alt-75' if 'brew-builder-image' in group_names and ansible_architecture == 's390x' else '' }}"
+- "{{ 'rhel-alt-75' if 'brew-builder-rhel8' in group_names and ansible_architecture == 's390x' else '' }}"
+- "{{ 'rhel-alt-75' if 'brew-builder-image' in group_names and ansible_architecture == 'aarch64' else '' }}"
+- "{{ 'bareos' if 'brew-prod-vmbuilders' in group_names else '' }}"
+- "{{ 'epel' if 'brew-prod-vmbuilders' in group_names else '' }}"
+
+# specific to stage environment at this time
+brew_nfs_mnt_qe_compose_test:
+  path: /mnt/compose_test
+  src: "{{ nfs_brew_compose_test_server_hostname }}:{{ nfs_brew_compose_test_server_path }}"
+  opts: "ro,nfsvers=3,nosuid,nodev,noatime,hard,intr,bg,tcp,rsize=32768,wsize=32768,_netdev"
+
+
+# allowed SCMs.  used by builder, kojira and kojivm roles.  Override by addeing to ./inventory.group_cars/brew-<env>
+koji_base_allowed_scms:
+-  cvs.devel.redhat.com:/cvs/dist
+-  anonsvn.jboss.org:/repos/*:no
+-  svn.devel.redhat.com:/repos/*:no
+-  svn.rhq-project.org:/repos/rhq:no
+-  svn.apache.org:/repos/*:no
+-  mobicents.googlecode.com:/svn/*:no
+-  git.fedorahosted.org:*:no
+-  git.corp.redhat.com:/srv/git/*:no
+-  git.engineering.redhat.com:/users/*:no
+-  git2.engineering.redhat.com:/users/*:no
+-  dev.eclipse.org:/svnroot/*:no
+-  svn.codehaus.org:*:no
+-  git.app.eng.bos.redhat.com:*:no
+-  git.host.prod.eng.bos.redhat.com:*:no
+-  pkgs.devel.redhat.com:/rpms/*:false:rhpkg,sources
+-  pkgs.devel.redhat.com:/apbs/*:no:rhpkg,sources
+-  pkgs.devel.redhat.com:/containers/*:no:rhpkg,sources
+-  pkgs.devel.redhat.com:/modules/*:no:rhpkg,sources
+-  forge.fusesource.com:*:no
+-  gerrit.eng.lab.tlv.redhat.com:*:no
+-  code.engineering.redhat.com:*:no
+-  gitlab-poc.host.stage.eng.bos.redhat.com:*:no
+-  src.osci.redhat.com:*:no:rhpkg,sources
+koji_allowed_scms: "{{ koji_base_allowed_scms }}"
+
+# use createrepo_c on rhel6+
+koji_use_createrepo_c: "{{ 'yes' if ansible_distribution_major_version >= '6' else 'no' }}"
+
+# base runroot settings
+koji_builder_runroot_default_mounts_base:
+-  /mnt/redhat
+-  /mnt/engarchive2
+koji_builder_runroot_default_mounts_extra:
+- "{{ '' if 'brew-builder-rhel8' in group_names else '/dev' }}"
+koji_builder_runroot_default_mounts: "{{ koji_builder_runroot_default_mounts_base + koji_builder_runroot_default_mounts_extra | difference(['']) }}"
+koji_builder_runroot_safe_roots: []
+koji_builder_runroot_path_subs: []
+koji_builder_runroot_paths_base:
+- mnt: /mnt/redhat
+  path: ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com:/devops_engineering_nfs/devarchive/redhat
+- mnt: /mnt/compose_test
+  path: "{{ nfs_brew_compose_test_server_hostname }}:{{ nfs_brew_compose_test_server_path }}"
+- mnt: /mnt/engarchive2
+  path: ntap-bos-c01-eng01-nfs01a.storage.bos.redhat.com:/devops_engarchive2_nfs
+- path: /dev
+  mnt: /dev
+  fstype: none
+  options: bind
+- mnt: /mnt/odcs
+  path: ntap-bos-c01-eng01-nfs01b.storage.bos.redhat.com:/devops_odcs_composes_nfs
+koji_builder_runroot_paths: "{{ koji_builder_runroot_paths_base }}"
+
+koji_builder_runroot_internal_dev_setup: "{{ '' if 'brew-builder-rhel8' in group_names else 'False' }}"
+
+
+# obsoleting
+brew_web_nodes_KrbService: HTTP
+brew_web_nodes_KrbDomain: REDHAT.COM
+
+# Brew channel list - used in Zabbix monitoring
+brew_channels:
+- rhel7
+- bluegene
+- aarch64
+- vm
+- container
+- rhel8
+- image
+
+# use perf labs elk for brew environments
+rsyslog_server_ip: "{{ lookup('ipaddress', 'rsyslog.perf.lab.eng.bos.redhat.com') }}"
+
+# preserve setting for bump in apache role
+httpd_ssl_ca_line: "SSLCertificateChainFile {{ ssl_ca_file }}"
+
+# brewkoji compat setting
+ssl_ca_file: /etc/httpd/conf/ssl.pem
+
+# remove secret repo topology from brew/koji role
+custom_brewhub_keytab: "{{ secret_repo }}/hosts/{{ inventory_hostname }}/brewhub.keytab"
+custom_kojira_keytab: "{{ secret_repo }}/hosts/{{ inventory_hostname }}/kojira.keytab"
+custom_koji_protonmsg_cert: "{{ secret_repo }}/hosts/{{ inventory_hostname }}/{{ koji_protonmsg_cert|basename }}"
+
+brew_cli_jumphost: "ops-shell.engineering.redhat.com"

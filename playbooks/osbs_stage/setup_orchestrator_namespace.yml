@@ -1,0 +1,101 @@
+# Standards: 1.8
+---
+- name: setup orchestrator namespace
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-namespace
+    osbs_orchestrator: true
+    osbs_cpu_limitrange: "{{ osbs_orchestrator_cpu_limitrange }}"
+    osbs_memory_limitrange: "{{ osbs_orchestrator_memory_limitrange }}"
+    osbs_nodeselector: "{{ osbs_orchestrator_default_nodeselector|default('') }}"
+
+- name: setup client config secret in orchestrator namespace
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: client-config-secret
+    osbs_secret_files:
+    - source: "/tmp/{{ osbs_namespace }}-client-config-secret.conf"
+      dest: osbs.conf
+
+- name: setup koji secret in orchestrator namespace
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: kojisecret
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/koji/cert"
+      dest: cert
+
+- name: setup orchestrator token for x86_64-upshift
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: x86-64-upshift-orchestrator
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/x86-64-upshift-orchestrator"
+      dest: token
+
+- name: setup orchestrator token for ppc64le-1-on-premise
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: ppc64le-1-on-premise-orchestrator
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/ppc64le-1-on-premise-orchestrator"
+      dest: token
+
+- name: setup orchestrator token for ppc64le-2-on-premise
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: ppc64le-2-on-premise-orchestrator
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/ppc64le-2-on-premise-orchestrator"
+      dest: token
+
+- name: setup orchestrator token for s390x-1-on-premise
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: s390x-1-on-premise-orchestrator
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/s390x-1-on-premise-orchestrator"
+      dest: token
+
+- name: setup orchestrator token for s390x-2-on-premise
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: s390x-2-on-premise-orchestrator
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/s390x-2-on-premise-orchestrator"
+      dest: token
+
+- name: setup orchestrator token for aarch64-on-premise
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: aarch64-on-premise-orchestrator
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/aarch64-on-premise-orchestrator"
+      dest: token
+
+- name: setup registries secret
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: registries-secret
+    osbs_secret_type: kubernetes.io/dockerconfigjson
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/registries-dockerconfigjson"
+      dest: .dockerconfigjson
+
+- name: setup OMPS secret
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_secret_name: ompssecret
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/omps.token"
+      dest: token

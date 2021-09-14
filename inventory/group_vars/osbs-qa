@@ -1,0 +1,312 @@
+---
+env: stage
+
+osbs_worker_clusters:
+  x86_64:
+  - name: x86_64-upshift
+    openshift_url: https://osbs.stage.psi.redhat.com/
+    verify_ssl: 'true'
+
+  ppc64le:
+  - name: ppc64le-1-on-premise
+    openshift_url: https://osbs-ppc64le-1.qa.engineering.redhat.com:8443/
+    verify_ssl: 'true'
+  - name: ppc64le-2-on-premise
+    openshift_url: https://osbs-ppc64le-2.qa.engineering.redhat.com:8443/
+    verify_ssl: 'true'
+
+  s390x:
+  - name: s390x-1-on-premise
+    openshift_url: https://osbs-s390x-1.qa.engineering.redhat.com:8443/
+    verify_ssl: 'true'
+  - name: s390x-2-on-premise
+    openshift_url: https://osbs-s390x-2.qa.engineering.redhat.com:8443/
+    verify_ssl: 'true'
+
+  aarch64:
+  - name: aarch64-on-premise
+    openshift_url: https://osbs-aarch64.qa.engineering.redhat.com:8443/
+    verify_ssl: 'true'
+
+_osbs_reactor_config_map:
+    version: 1
+
+    clusters:
+      x86_64:
+      - name: x86_64-upshift
+        max_concurrent_builds: 80
+        enabled: "{{ x86_64_upshift_enabled }}"
+
+      ppc64le:
+      - name: ppc64le-1-on-premise
+        max_concurrent_builds: 40
+        enabled: "{{ ppc64le_1_on_premise_enabled }}"
+      - name: ppc64le-2-on-premise
+        max_concurrent_builds: 40
+        enabled: "{{ ppc64le_2_on_premise_enabled }}"
+
+      s390x:
+      - name: s390x-1-on-premise
+        max_concurrent_builds: 16
+        enabled: "{{ s390x_1_on_premise_enabled }}"
+      - name: s390x-2-on-premise
+        max_concurrent_builds: 16
+        enabled: "{{ s390x_2_on_premise_enabled }}"
+
+      aarch64:
+      - name: aarch64-on-premise
+        max_concurrent_builds: 24
+        enabled: "{{ aarch64_on_premise_enabled }}"
+
+    clusters_client_config_dir: /var/run/secrets/atomic-reactor/client-config-secret
+
+    koji:
+      hub_url: https://brewhub.stage.engineering.redhat.com/brewhub
+      root_url: https://brewweb.stage.engineering.redhat.com/brewroot/
+      auth:
+        ssl_certs_dir: /var/run/secrets/atomic-reactor/kojisecret
+      reserve_build: True
+      task_annotations_whitelist:
+      - remote_source_url
+      - remote_sources
+
+    pnc:
+      base_api_url: http://orch.psi.redhat.com/pnc-rest/v2
+      get_scm_archive_path: 'builds/{}/scm-archive'
+      get_artifact_path: 'artifacts/{}'
+
+    odcs:
+        api_url: https://odcs.stage.engineering.redhat.com/api/1
+        auth:
+          ssl_certs_dir: /var/run/secrets/atomic-reactor/kojisecret
+        signing_intents: "{{ osbs_odcs_signing_intents }}"
+        default_signing_intent: "{{ osbs_odcs_default_signing_intent }}"
+        timeout: 7200
+
+    image_labels:
+      vendor: "{{ osbs_conf_vendor }}"
+      distribution-scope: private
+      com.redhat.license_terms: "https://www.redhat.com/agreements"
+
+    image_label_info_url_format: "https://access.qa.redhat.com/containers/#/{{ osbs_conf_authoritative_registry }}/{name}/images/{version}-{release}"
+
+    image_equal_labels: "{{ osbs_image_equal_labels }}"
+
+    image_size_limit:
+      binary_image: 32212254720  # 30 GiB uncompressed image
+
+    openshift:
+      url: "{{ osbs_reactor_config_openshift_url }}"
+      build_json_dir: /usr/share/osbs
+      auth:
+        enable: True
+
+    platform_descriptors: "{{ osbs_platform_descriptors }}"
+
+    prefer_schema1_digest: False
+
+    content_versions:
+    - v2
+
+    registries:
+    - url: https://registry-proxy-stage.engineering.redhat.com/v2
+      insecure: False
+      auth:
+        cfg_path: /var/run/secrets/atomic-reactor/registries-secret
+
+    registries_organization: rh-osbs-stage
+
+    hide_files:
+      tmpdir: /tmp
+      files:
+      - /etc/yum.repos.d/ubi.repo
+
+    source_registry:
+      url: https://registry-proxy-stage.engineering.redhat.com
+      insecure: False
+
+    group_manifests: True
+
+    sources_command: rhpkg-env sources
+
+    artifacts_allowed_domains:
+    - download.devel.redhat.com/released
+    - download.devel.redhat.com/devel/candidates
+    - download.devel.redhat.com/brewroot
+    - download.engineering.redhat.com/released
+    - download.engineering.redhat.com/devel/candidates
+    - download.engineering.redhat.com/brewroot
+    - indy.psi.redhat.com/api/content/maven/hosted/pnc-builds
+
+    smtp:
+      host: smtp.corp.redhat.com
+      from_address: buildsys@redhat.com
+      error_addresses:
+      - container-buildsys-results@redhat.com
+      domain: redhat.com
+      send_to_submitter: True
+      send_to_pkg_owner: True
+
+    cachito:
+      api_url: https://cachito.stage.engineering.redhat.com
+      auth:
+        ssl_certs_dir: /var/run/secrets/atomic-reactor/kojisecret
+      unknown_user: osbs_qa_unknown_user
+      timeout: 14400
+
+    required_secrets:
+    - kojisecret
+    - registries-secret
+
+    worker_token_secrets:
+    - x86-64-upshift-orchestrator
+    - ppc64le-1-on-premise-orchestrator
+    - ppc64le-2-on-premise-orchestrator
+    - s390x-1-on-premise-orchestrator
+    - s390x-2-on-premise-orchestrator
+    - aarch64-on-premise-orchestrator
+    - client-config-secret
+    - ompssecret
+
+    build_env_vars:
+    - name: NO_PROXY
+      value: "localhost,127.0.0.1,.psi.redhat.com,.engineering.redhat.com,.rdu2.redhat.com,.bos.redhat.com,.cee.redhat.com,.upshift.redhat.com,.devel.redhat.com,.phx2.redhat.com,.osci.redhat.com"
+    - name: HTTPS_PROXY
+      value: "http://osbs-external-proxy.hosts.dev.upshift.rdu2.redhat.com:3128"
+
+    package_comparison_exceptions:
+    - libquadmath
+
+    flatpak:
+      base_image: "registry-proxy-stage.engineering.redhat.com/rh-osbs-stage/rhel8:8.0-833"
+      metadata: both
+
+    buildstep_alias:
+      buildah_bud: imagebuilder
+
+    omps:
+      omps_url: "https://omps-qa.cloud.paas.psi.redhat.com"
+      omps_namespace: rh-osbs-operators-stage
+      omps_secret_dir: /var/run/secrets/atomic-reactor/ompssecret
+      appregistry_url: https://quay.io/cnr
+
+    source_container:
+      limit_media_types:
+      - application/vnd.docker.distribution.manifest.v2+json
+      denylist_srpms:
+        denylist_url: "http://git.app.eng.bos.redhat.com/git/rcm/rcm-metadata.git/plain/automation/missing_misplaced_source/config.json"
+        denylist_key: blacklist_source
+      denylist_sources: "http://git.app.eng.bos.redhat.com/git/rcm/rcm-metadata.git/plain/automation/missing_misplaced_source/container-source-exclusions.yaml"
+      cpu_request: 1001m
+      memory_request: 3Gi
+
+    operator_manifests:
+      allowed_registries:
+        - registry-proxy.engineering.redhat.com
+        - registry-proxy-stage.engineering.redhat.com
+        - registry.redhat.io
+        - registry.stage.redhat.io
+      registry_post_replace:
+        - old: registry-proxy.engineering.redhat.com
+          new: registry.redhat.io
+        - old: registry.stage.redhat.io
+          new: registry.redhat.io
+      repo_replacements:
+        - registry: registry-proxy.engineering.redhat.com
+          package_mappings_url: "https://gitlab.cee.redhat.com/osbs/package-mapping-storage/-/raw/master/package_mapping.yaml"
+        - registry: registry-proxy-stage.engineering.redhat.com
+          package_mappings_url: "https://gitlab.cee.redhat.com/osbs/package-mapping-storage/-/raw/master/package_mapping.yaml"
+      csv_modifications:
+        allowed_attributes:
+        -  ["spec", "skips",]
+        -  ["spec", "version",]
+        -  ["metadata", "annotations", "olm.substitutesFor",]
+        -  ["metadata", "name",]
+
+    pull_registries:
+    - url: "https://registry-proxy.engineering.redhat.com"
+      insecure: false
+    - url: "https://registry.redhat.io"
+      insecure: false
+      auth:
+        cfg_path: /var/run/secrets/atomic-reactor/registries-secret
+    - url: "https://registry.stage.redhat.io"
+      insecure: false
+      auth:
+        cfg_path: /var/run/secrets/atomic-reactor/registries-secret
+    - url: "https://registry.access.redhat.com"
+      insecure: false
+      auth:
+        cfg_path: /var/run/secrets/atomic-reactor/registries-secret
+    - url: "https://registry.access.stage.redhat.com"
+      insecure: false
+      auth:
+        cfg_path: /var/run/secrets/atomic-reactor/registries-secret
+
+    builder_ca_bundle: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+
+_osbs_scratch_reactor_config_map_overrides:
+  artifacts_allowed_domains: []
+
+osbs_reactor_config_maps:
+- name: reactor-config-map
+  data: "{{ _osbs_reactor_config_map }}"
+- name: reactor-config-map-scratch
+  data: >
+    {{ _osbs_reactor_config_map |
+       combine(_osbs_scratch_reactor_config_map_overrides, recursive=True) }}
+
+osbs_orchestrator_cpu_limitrange: 95m
+osbs_orchestrator_memory_limitrange: 200Mi
+
+osbs_buildroot_imagestream_post_build_tag: staged
+
+# default states
+# for overriding during outages
+x86_64_upshift_enabled: true
+ppc64le_1_on_premise_enabled: true
+ppc64le_2_on_premise_enabled: true
+s390x_1_on_premise_enabled: true
+s390x_2_on_premise_enabled: true
+aarch64_on_premise_enabled: true
+
+# buildroot version
+osbs_buildroot_imagestream_live_tag: '4.0-26'
+
+# openshift permissions
+osbs_admin_users:
+- balkov
+- lkolacek
+- rcerven
+- twaugh
+- mbasti
+- eakhmano
+- mkosiarc
+- lucarval
+- acmiel
+- cqi
+- ssalatsk
+- ggeorgie
+- hmodi
+- mkingsbu
+- kfaltynk
+
+osbs_admin_groups: []
+
+osbs_cluster_reader_users: "{{ osbs_admin_users + [ \"system:serviceaccount:\" ~ osbs_namespace ~ \":monitoring\" ] }}"
+
+osbs_pruner_custom_image: 'registry-proxy.engineering.redhat.com/rh-osbs/rcm-buildroot:4.0'
+osbs_pruner_serviceaccount: "pruner"
+
+osbs_pruner_schedule_build: "0 0 * * *"
+osbs_pruner_schedule_buildconfigs: "0 3 * * 0"
+osbs_pruner_schedule_imagestreams: "0 1 * * 0"
+osbs_pruner_schedule_istags: "0 3 * * *"
+osbs_pruner_schedule_pods: "0 2 * * *"
+osbs_pruner_schedule_configmaps: "0 3 * * *"
+
+osbs_pruner_builds_keep_complete: 5
+osbs_pruner_builds_keep_younger: '168h'
+osbs_pruner_config_maps_days_old: 1
+osbs_pruner_istags_days_old: 1
+osbs_pruner_pods_days_old: 1

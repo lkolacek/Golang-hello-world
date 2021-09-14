@@ -1,0 +1,14 @@
+---
+# common OSBS builder plugin configs
+brew_builder_osbs_buildroot_registry: "brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888"
+brew_builder_osbs_buildroot_imagestream: "osbs-rcm-buildroot"
+brew_builder_osbs_config_sections_list: ["default", "scratch"]
+
+brew_builder_osbs_manage_packages_present:
+- "python-osbs-client-{{ brew_builder_osbs_pkg_versions.osbs_client }}.el6eng.noarch"
+- "osbs-client-{{ brew_builder_osbs_pkg_versions.osbs_client }}.el6eng.noarch"
+- "koji-containerbuild-builder-{{ brew_builder_osbs_pkg_versions.koji_containerbuild }}.el6eng.noarch"
+- "koji-containerbuild-{{ brew_builder_osbs_pkg_versions.koji_containerbuild }}.el6eng.noarch"
+- "python-dockerfile-parse-{{ brew_builder_osbs_pkg_versions.dockerfile_parse }}.el6eng.noarch"
+
+brewbuilder_osbs_token: "../../vaults/{{ env }}/koji.token"

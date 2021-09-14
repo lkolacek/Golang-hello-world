@@ -1,0 +1,2 @@
+env: prod
+brew_cli_cmd: brew

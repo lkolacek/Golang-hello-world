@@ -1,0 +1,7 @@
+- src: https://gitlab.cee.redhat.com/ansible-roles/osbs-namespace.git
+  scm: git
+  version: v1.43
+
+- src: https://gitlab.cee.redhat.com/ansible-roles/osbs-secret.git
+  scm: git
+  version: v1.4

@@ -1,0 +1,23 @@
+# Standards: 1.8
+---
+- hosts: brew-prod-osbs
+  roles:
+  - role: manage-packages
+    manage_packages_present: "{{ brew_builder_osbs_manage_packages_present }}"
+  - brew/builder/osbs
+
+- hosts: brew-prod-osbs
+  tasks:
+  - name: restart kojid systemd
+    systemd:
+      name: kojid
+      state: restarted
+      daemon_reload: yes
+      # unfortuanly ansible 2.4 requires that the service default state is set
+      enabled: yes
+      masked: no
+
+  - name: restart kojid rest
+    service:
+      name: kojid
+      state: restarted

@@ -1,0 +1,19 @@
+---
+- name: Test files adjustemnts
+  hosts: localhost
+  vars:
+    proxy_url: "NEWERregistry-proxy-testingNEWER"
+    no_proxy_addresses: "localhost,127.0.0.1,192.168.0.1,10.10.10.10"
+  tasks:
+    - name: 'Include environment variables in master.env config'
+      lineinfile:
+        path: /tmp/master.env
+        line: '{{ item.env_variable }}'
+        regexp: '{{ item.regex }}'
+        create: yes
+        state: present
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+', env_variable: 'export HTTPS_PROXY="{{ proxy_url }}"' }
+        - { regex: 'export NO_PROXY=.+', env_variable: 'export NO_PROXY="{{ no_proxy_addresses }}"' }
+        - { regex: 'export https_proxy=.+', env_variable: 'export https_proxy="{{ proxy_url }}"' }
+        - { regex: 'export no_proxy=.+', env_variable: 'export no_proxy="{{ no_proxy_addresses }}"' }

@@ -1,0 +1,142 @@
+---
+- name: Remove duplicate lines in config files
+  hosts: nodes-prod
+  become: true
+  tasks:
+    - name: 'Remove duplicated lines in /etc/sysconfig/docker'
+      lineinfile:
+        path: /etc/sysconfig/docker
+        regexp: '{{ item.regex }}'
+        state: absent
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+' }
+        - { regex: 'export NO_PROXY=.+' }
+        - { regex: 'export https_proxy=.+' }
+        - { regex: 'export no_proxy=.+' }
+        - { regex: 'HTTPS_PROXY=.+' }
+        - { regex: 'NO_PROXY=.+' }
+        - { regex: 'https_proxy=.+' }
+        - { regex: 'no_proxy=.+' }
+    - name: 'Remove duplicated lines in /etc/environment'
+      lineinfile:
+        path: /etc/environment
+        regexp: '{{ item.regex }}'
+        state: absent
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+' }
+        - { regex: 'export NO_PROXY=.+' }
+        - { regex: 'export https_proxy=.+' }
+        - { regex: 'export no_proxy=.+' }
+        - { regex: 'HTTPS_PROXY=.+' }
+        - { regex: 'NO_PROXY=.+' }
+        - { regex: 'https_proxy=.+' }
+        - { regex: 'no_proxy=.+' }
+
+
+- name: Remove duplicate lines in config file on masters
+  hosts: osbs-master-prod-nodes
+  become: true
+  tasks:
+    - name: 'Remove duplicated lines in /etc/origin/master/master.env'
+      lineinfile:
+        path: /etc/origin/master/master.env
+        regexp: '{{ item.regex }}'
+        state: absent
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+' }
+        - { regex: 'export NO_PROXY=.+' }
+        - { regex: 'export https_proxy=.+' }
+        - { regex: 'export no_proxy=.+' }
+        - { regex: 'HTTPS_PROXY=.+' }
+        - { regex: 'NO_PROXY=.+' }
+        - { regex: 'https_proxy=.+' }
+        - { regex: 'no_proxy=.+' }
+    - name: 'Remove duplicated lines in /etc/sysconfig/atomic-openshift-node'
+      lineinfile:
+        path: /etc/sysconfig/atomic-openshift-node
+        regexp: '{{ item.regex }}'
+        state: absent
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+' }
+        - { regex: 'export NO_PROXY=.+' }
+        - { regex: 'export https_proxy=.+' }
+        - { regex: 'export no_proxy=.+' }
+        - { regex: 'HTTPS_PROXY=.+' }
+        - { regex: 'NO_PROXY=.+' }
+        - { regex: 'https_proxy=.+' }
+        - { regex: 'no_proxy=.+' }
+
+
+- name: Configure HTTPS proxy on master nodes
+  hosts: osbs-master-prod-nodes
+  become: true
+  tasks:
+    - name: 'Include environment variables in master.env config'
+      lineinfile:
+        path: /etc/origin/master/master.env
+        line: '{{ item.env_variable }}'
+        regexp: '{{ item.regex }}'
+        create: yes
+        state: present
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+', env_variable: 'export HTTPS_PROXY="{{ proxy_url }}"' }
+        - { regex: 'export NO_PROXY=.+', env_variable: 'export NO_PROXY="{{ no_proxy_addresses }}"' }
+        - { regex: 'export https_proxy=.+', env_variable: 'export https_proxy="{{ proxy_url }}"' }
+        - { regex: 'export no_proxy=.+', env_variable: 'export no_proxy="{{ no_proxy_addresses }}"' }
+    - name: 'Include environment variables in atomic-openshift-node config'
+      lineinfile:
+        path: /etc/sysconfig/atomic-openshift-node
+        line: '{{ item.env_variable }}'
+        regexp: '{{ item.regex }}'
+        create: yes
+        state: present
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+', env_variable: 'export HTTPS_PROXY="{{ proxy_url }}"' }
+        - { regex: 'export NO_PROXY=.+', env_variable: 'export NO_PROXY="{{ no_proxy_addresses }}"' }
+        - { regex: 'export https_proxy=.+', env_variable: 'export https_proxy="{{ proxy_url }}"' }
+        - { regex: 'export no_proxy=.+', env_variable: 'export no_proxy="{{ no_proxy_addresses }}"' }
+
+
+- name: Configure HTTPS proxy for docker
+  hosts: nodes-prod
+  become: true
+  handlers:
+    - name: restart_docker_service
+      service:
+        name: docker
+        state: restarted
+    - name: systemd_reload_configs
+      systemd:
+        daemon_reload: yes
+  tasks:
+    - name: Include environment variables in docker config
+      lineinfile:
+        path: /etc/sysconfig/docker
+        line: '{{ item.env_variable }}'
+        regexp: '{{ item.regex }}'
+        create: yes
+        state: present
+      with_items:
+        - { regex: 'HTTPS_PROXY=.+', env_variable: 'HTTPS_PROXY="{{ proxy_url }}"' }
+        - { regex: 'NO_PROXY=.+', env_variable: 'NO_PROXY="{{ no_proxy_addresses }}"' }
+      notify:
+         - restart_docker_service
+         - systemd_reload_configs
+
+
+- name: Configure system wide HTTPS proxy
+  hosts: nodes-prod
+  become: true
+  tasks:
+    - name: 'Include environment variables in {{ system_wide_conf_file }}'
+      lineinfile:
+        path: '{{ system_wide_conf_file }}'
+        line: '{{ item.env_variable }}'
+        regexp: '{{ item.regex }}'
+        create: yes
+        state: present
+      with_items:
+        - { regex: 'export HTTPS_PROXY=.+', env_variable: 'export HTTPS_PROXY="{{ proxy_url }}"' }
+        - { regex: 'export NO_PROXY=.+', env_variable: 'export NO_PROXY="{{ no_proxy_addresses }}"' }
+        - { regex: 'export https_proxy=.+', env_variable: 'export https_proxy="{{ proxy_url }}"' }
+        - { regex: 'export no_proxy=.+', env_variable: 'export no_proxy="{{ no_proxy_addresses }}"' }

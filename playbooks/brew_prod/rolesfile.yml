@@ -1,0 +1,7 @@
+- src: https://gitlab.cee.redhat.com/ansible-roles/brew.git
+  scm: git
+  version: v1.96
+
+- src: https://gitlab.cee.redhat.com/ansible-roles/manage-packages.git
+  scm: git
+  version: v1.1

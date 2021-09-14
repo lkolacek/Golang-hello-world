@@ -1,0 +1,45 @@
+---
+# osbs.conf variables for using the OSBS OpenShift cluster
+brew_builder_osbs_openshift_uri: "https://osbs.psi.redhat.com"
+brew_builder_osbs_namespace: "osbs-prod"
+brew_builder_osbs_token_file: "/etc/osbs/koji.token"
+brew_builder_osbs_reactor_config_map: "reactor-config-map"
+brew_builder_osbs_reactor_config_map_scratch: "reactor-config-map-scratch"
+
+# The Brew-Pulp instance used by the prod environment is v2 schema2-aware,
+# so tell OSBS to wait for v2 schema2 content to appear. Note: the option
+# name is confusing; see OSBS-5098.
+brew_builder_osbs_can_orchestrate: true
+
+brew_builder_max_jobs: 50
+
+has_sudo: ['engops', 'brewmasters']
+
+brew_builder_osbs_build_imagestream: "{{ brew_builder_osbs_buildroot_imagestream }}:released"
+
+koji_builder_packages_extra:
+- "{{ 'git' if ansible_os_family == 'RedHat' and ansible_distribution_major_version == '5' else '' }}"
+
+brew_builder_osbs_pkg_versions:
+  osbs_client: "1.10.0-1"
+  koji_containerbuild: "0.12.0-1"
+  dockerfile_parse: "1.2.0-1"
+
+zabbix_host_groups:
+- 'All hosts'
+- "{{ geo_location|upper }}"
+- 'Brew builders'
+- "{{ 'Brew builders rhel8' if 'brew-builder-rhel8' in group_names else '' }}"
+- "{{ 'Hypervisors' if 'kvm-hypervisors' in group_names else '' }}"
+
+zabbix_link_templates_agent:
+- 'Template - Brew builder status'
+- 'Template OS Linux - no NFS'
+
+zabbix_link_templates_snmp:
+- 'Template - Brew builder status'
+- 'Template ICMP Ping'
+- 'Template SNMP OS Linux'
+
+brew_containerbuild_builder_plugin: "{{ 'True' if ansible_os_family == 'RedHat' and ansible_distribution_major_version >= '6' else 'False' }}"
+iptables_forward_policy: ACCEPT

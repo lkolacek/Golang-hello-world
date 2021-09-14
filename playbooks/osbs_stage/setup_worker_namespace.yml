@@ -1,0 +1,31 @@
+# Standards: 1.8
+---
+- name: setup worker namespace
+  hosts: osbs-ppc64le-1-qa-masters[0]:osbs-ppc64le-2-qa-masters[0]:osbs-s390x-1-qa-masters[0]:osbs-s390x-2-qa-masters[0]:osbs-aarch64-qa-masters[0]:osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-namespace
+    osbs_namespace: "{{ osbs_worker_namespace }}"
+    osbs_service_accounts: "{{ osbs_worker_service_accounts }}"
+    osbs_nodeselector: "{{ osbs_worker_default_nodeselector|default('') }}"
+
+- name: setup koji secret in worker namespace
+  hosts: osbs-ppc64le-1-qa-masters[0]:osbs-ppc64le-2-qa-masters[0]:osbs-s390x-1-qa-masters[0]:osbs-s390x-2-qa-masters[0]:osbs-aarch64-qa-masters[0]:osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_namespace: "{{ osbs_worker_namespace }}"
+    osbs_secret_name: kojisecret
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/koji/cert"
+      dest: cert
+
+- name: setup registries secret in worker namespace
+  hosts: osbs-ppc64le-1-qa-masters[0]:osbs-ppc64le-2-qa-masters[0]:osbs-s390x-1-qa-masters[0]:osbs-s390x-2-qa-masters[0]:osbs-aarch64-qa-masters[0]:osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-secret
+    osbs_namespace: "{{ osbs_worker_namespace }}"
+    osbs_secret_name: registries-secret
+    osbs_secret_type: kubernetes.io/dockerconfigjson
+    osbs_secret_files:
+    - source: "../../vaults/{{ env }}/registries-dockerconfigjson"
+      dest: .dockerconfigjson
+

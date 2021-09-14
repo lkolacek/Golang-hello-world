@@ -1,0 +1,4 @@
+---
+# HTTPS PROXY set up variables for external registries
+no_proxy_addresses: "localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,.psi.redhat.com,.engineering.redhat.com,.rdu2.redhat.com,.bos.redhat.com,.cee.redhat.com,.upshift.redhat.com,.devel.redhat.com,.phx2.redhat.com,.osci.redhat.com"
+system_wide_conf_file: "/etc/environment"

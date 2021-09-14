@@ -1,0 +1,3 @@
+---
+env: stage
+brew_cli_cmd: brew-stage

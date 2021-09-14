@@ -1,0 +1,36 @@
+---
+osbs_namespace: osbs-prod
+
+# Allow 'oc' command to find its configuration file
+osbs_kubeconfig_path: /etc/origin/master/admin.kubeconfig
+osbs_environment:
+  HOME: "{{ lookup('env', 'HOME') }}"
+  KUBECONFIG: "{{ osbs_kubeconfig_path }}"
+
+osbs_service_accounts:
+- metrics
+- autobot-jenkins
+- monitoring
+
+osbs_readonly_users:
+- "ce-ci-jenkins"
+- "system:serviceaccount:{{ osbs_namespace }}:metrics"
+
+osbs_readonly_groups:
+- "system:authenticated"
+
+osbs_readwrite_groups: []
+
+osbs_readwrite_users:
+- "{{ ansible_hostname }}"
+- "system:serviceaccount:{{ osbs_namespace }}:default"
+- "system:serviceaccount:{{ osbs_namespace }}:builder"
+- "system:serviceaccount:{{ osbs_namespace }}:autobot-jenkins"
+
+# limit on the number of running pods
+osbs_cpu_limitrange: "1000m"
+osbs_memory_limitrange: "4Gi"
+
+osbs_worker_default_nodeselector: "worker=true"
+
+osbs_cronjob_api_version: batch/v1beta1

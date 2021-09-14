@@ -1,0 +1,7 @@
+# Standards: 1.8
+---
+- name: override systemd
+  hosts: osbs-aarch64-qa-nodes
+  roles:
+  - role: osbs-namespace/operations
+    osbs_systemd_override: true

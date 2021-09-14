@@ -1,0 +1,7 @@
+# Standards: 1.8
+---
+- name: update post build tag
+  hosts: osbs-upshift-master-qa[0]
+  roles:
+  - role: osbs-namespace/operations
+    osbs_buildroot_do_tag: true
